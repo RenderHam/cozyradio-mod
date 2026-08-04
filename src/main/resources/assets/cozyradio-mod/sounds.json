@@ -1,0 +1,10 @@
+{
+  "radio": {
+    "sounds": [
+      {
+        "name": "cozyradio-mod:radio",
+        "stream": false
+      }
+    ]
+  }
+}

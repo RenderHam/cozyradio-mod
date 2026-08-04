@@ -1,0 +1,37 @@
+{
+	"schemaVersion": 1,
+	"id": "cozyradio-mod",
+	"version": "${version}",
+	"name": "CozyRadio Mod",
+	"description": "Craft a Cozy Radio disc, pop it into a jukebox, and every player nearby tunes into an endless, server-synchronized internet radio stream — MP3 relays and the YouTube live radios players add themselves, decoded natively via Lavaplayer.",
+	"authors": [
+		"CozyRadio"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/cozyradio-mod/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.cozyradio.CozyRadioMod"
+		],
+		"client": [
+			"com.cozyradio.client.CozyRadioModClient"
+		],
+		"fabric-gametest": [
+			"com.cozyradio.test.CozyRadioGameTests"
+		]
+	},
+	"mixins": [
+		"cozyradio-mod.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

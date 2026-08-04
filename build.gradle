@@ -1,0 +1,134 @@
+plugins {
+	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+	id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+repositories {
+	mavenCentral()
+	maven { url "https://maven.lavalink.dev/releases" }
+}
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"cozyradio-mod" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+
+	runs {
+		gametest {
+			server()
+			vmArg "-Dfabric-api.gametest"
+		}
+	}
+}
+
+dependencies {
+	// To change the versions see the gradle.properties file
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings loom.officialMojangMappings()
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	// Fabric API. This is technically optional, but you probably want it anyway.
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Lavaplayer (Apache-2.0) + youtube-source (LGPL FFmpeg natives) for all
+	// playback: YouTube live streams and MP3 relays (native libmpg123 decode).
+	clientImplementation "dev.arbjerg:lavaplayer:2.2.7"
+	include "dev.arbjerg:lavaplayer:2.2.7"
+	clientImplementation "dev.arbjerg:lava-common:2.2.7"
+	include "dev.arbjerg:lava-common:2.2.7"
+	clientImplementation "dev.arbjerg:lavaplayer-natives:2.2.7"
+	include "dev.arbjerg:lavaplayer-natives:2.2.7"
+	clientImplementation "dev.lavalink.youtube:v2:1.18.2"
+	include "dev.lavalink.youtube:v2:1.18.2"
+	clientImplementation "dev.lavalink.youtube:common:1.18.2"
+	include "dev.lavalink.youtube:common:1.18.2"
+
+	// Transitive deps of Lavaplayer/youtube-source — must be bundled for
+	// jar-in-jar (not provided by Minecraft at runtime).
+	clientImplementation "org.apache.httpcomponents:httpclient:4.5.14"
+	include "org.apache.httpcomponents:httpclient:4.5.14"
+	clientImplementation "org.apache.httpcomponents:httpcore:4.4.16"
+	include "org.apache.httpcomponents:httpcore:4.4.16"
+	// httpclient/httpcore runtime deps — must be bundled for jar-in-jar (not
+	// provided by Minecraft at runtime).
+	clientImplementation "commons-logging:commons-logging:1.3.4"
+	include "commons-logging:commons-logging:1.3.4"
+	clientImplementation "commons-codec:commons-codec:1.17.1"
+	include "commons-codec:commons-codec:1.17.1"
+	clientImplementation "com.fasterxml.jackson.core:jackson-annotations:2.15.2"
+	include "com.fasterxml.jackson.core:jackson-annotations:2.15.2"
+	clientImplementation "com.fasterxml.jackson.core:jackson-core:2.15.2"
+	include "com.fasterxml.jackson.core:jackson-core:2.15.2"
+	clientImplementation "com.fasterxml.jackson.core:jackson-databind:2.15.2"
+	include "com.fasterxml.jackson.core:jackson-databind:2.15.2"
+	clientImplementation "org.jsoup:jsoup:1.16.1"
+	include "org.jsoup:jsoup:1.16.1"
+	clientImplementation "org.mozilla:rhino:1.7.15"
+	include "org.mozilla:rhino:1.7.15"
+	clientImplementation "org.mozilla:rhino-engine:1.7.15"
+	include "org.mozilla:rhino-engine:1.7.15"
+	clientImplementation "commons-io:commons-io:2.13.0"
+	include "commons-io:commons-io:2.13.0"
+	clientImplementation "com.grack:nanojson:1.7"
+	include "com.grack:nanojson:1.7"
+	clientImplementation "org.slf4j:slf4j-api:2.0.7"
+	include "org.slf4j:slf4j-api:2.0.7"
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 21
+}
+
+java {
+	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
+	// if it is present.
+	// If you remove this line, sources will not be generated.
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}
+
+jar {
+	def projectName = project.name
+	inputs.property "projectName", projectName
+
+	from("LICENSE") {
+		rename { "${it}_$projectName"}
+	}
+}
+
+// configure the maven publication
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			from components.java
+		}
+	}
+
+	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
+	repositories {
+		// Add repositories to publish to here.
+		// Notice: This block does NOT have the same function as the block in the top level.
+		// The repositories here will be used for publishing your artifact, not for
+		// retrieving dependencies.
+	}
+}
+

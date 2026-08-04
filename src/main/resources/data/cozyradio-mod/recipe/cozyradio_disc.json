@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "JD"
+  ],
+  "key": {
+    "J": "minecraft:jukebox",
+    "D": "minecraft:diamond"
+  },
+  "result": {
+    "id": "cozyradio-mod:cozyradio_disc",
+    "count": 1
+  }
+}
