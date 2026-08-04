@@ -1,5 +1,7 @@
 # CozyRadio Mod
 
+> **Experimental** — expect bugs; not feature-complete.
+
 A [Fabric](https://fabricmc.net/) mod for Minecraft 1.21.11 that adds the **Cozy Radio
 disc** — a music disc that plays an endless, server-synchronized internet radio
 stream for every player near a jukebox.
