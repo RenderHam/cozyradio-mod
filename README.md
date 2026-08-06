@@ -1,10 +1,19 @@
 # CozyRadio Mod
 
-> **Experimental** — expect bugs; not feature-complete.
+> **⚠️ Experimental — proceed with caution.** This mod is still at the experimental
+> stage. Expect bugs, occasional breakage, and config/save incompatibilities between
+> versions. It is not feature-complete; not recommended for production servers.
 
 A [Fabric](https://fabricmc.net/) mod for Minecraft 1.21.11 that adds the **Cozy Radio
 disc** — a music disc that plays an endless, server-synchronized internet radio
 stream for every player near a jukebox.
+
+## Requirements
+
+- Minecraft **1.21.11** with [Fabric Loader](https://fabricmc.net/use/installer/) **0.19.3+**
+- [Fabric API](https://modrinth.com/mod/fabric-api) (1.21.11 build)
+- Java **21+**
+- Install the mod on the **server and every client** (or in singleplayer)
 
 ## Features
 
@@ -30,10 +39,6 @@ stream for every player near a jukebox.
   dropouts retry up to 3 times (5s backoff).
 - **Works with vanilla jukeboxes**: insert/eject, redstone comparator output and music
   particles all behave normally.
-
-> **Station URLs can go stale**: radio relays change occasionally. If a station goes
-> silent or fails to load, update its `url` in `playlist.json` (see below) and restart
-> the server.
 
 ## Usage
 
@@ -136,16 +141,59 @@ Each station has a `type`:
 Station URLs are resolved on the client, so any mod can add stations; the server only
 forwards the playlist.
 
-> **No sound?** The stream volume follows the **Record** and **Master** sliders
-> (Sound Settings). If either is muted (e.g. `soundCategory_music: 0.0` — the mod does
-> *not* use the Music slider), you'll hear silence. Check the chat log for
-> "Starting Cozy Radio stream…" and `latest.log` for `(cozyradio-mod)` entries.
+## Troubleshooting
+
+**No sound?** The stream volume follows the **Record** and **Master** sliders (Sound
+Settings). If either is muted (e.g. `soundCategory_music: 0.0` — the mod does *not* use
+the Music slider), you'll hear silence. Check the chat log for "Starting Cozy Radio
+stream…" and `latest.log` for `(cozyradio-mod)` entries.
+
+**A station goes silent or fails to load** — radio relay URLs change occasionally. Update
+the station's `url` in `config/cozyradio-mod/playlist.json` and restart the server.
+
+**A YouTube station stops** — live-stream IDs die whenever the 24/7 broadcast restarts.
+Remove the station and `/cozyradio add` the current URL. On networks that block anonymous
+YouTube access, the embedded Lavaplayer may need OAuth (see the Configuration caveats above).
 
 ## Development
 
-- `./gradlew build` — compile and package (`build/libs/cozyradio-mod-1.0.0.jar`).
-- `./gradlew runServer` / `runClient` — run in a dev environment.
-- `./gradlew runGametest` — run the server-side GameTests (jukebox play/stop tracking).
+### Setup & commands
+
+```
+./gradlew build          # compile + package → build/libs/cozyradio-mod-1.0.0.jar
+./gradlew runClient      # launch a dev client
+./gradlew runServer      # launch a dev server
+./gradlew runGametest    # server-side GameTests (jukebox play/stop tracking)
+```
+
+Needs JDK 21+ and internet access on the first build.
+
+### Architecture
+
+`src/main/java` holds the shared/server logic; `src/client/java` the client-only code.
+
+| Package | Responsibility |
+| ------- | -------------- |
+| `com.cozyradio` | Entry point + registries (`CozyRadioMod`) |
+| `com.cozyradio.item` | `CozyRadioDiscItem` — the disc item |
+| `com.cozyradio.mixin` | `JukeboxSongPlayerMixin` — vanilla jukebox integration |
+| `com.cozyradio.radio` | `ServerRadioManager`, `YoutubeUrl` — server-side radio logic |
+| `com.cozyradio.config` | `PlaylistConfig`, `PersonalStationStore` — config read/write + migration |
+| `com.cozyradio.network` | `ModNetworking` + `StationStart/StopPayload` — server → client messages |
+| `com.cozyradio.client.audio` | `ClientRadioPlayer`, `LavaRadioPlayer`, `CozyRadioAudioDevice`, `LavaPlayerFactory` — client playback |
+| `com.cozyradio.client.hud` | `RadioToast` — HUD status card |
+| `com.cozyradio.test` | Fabric GameTests |
+
+How it works: the **server** owns the rotation and broadcasts station state to every
+client near a playing jukebox; the **client** resolves the station URL and streams it
+with Lavaplayer (MP3 natively, YouTube via youtube-source). Servers only forward the
+playlist — station URLs always resolve on the client.
+
+### Contributing
+
+- Report bugs via [issues](https://github.com/RenderHam/cozyradio-mod/issues)
+- Keep changes in the existing package layout; run `./gradlew build` and `runGametest` before opening a PR
+- To suggest a default station, open an issue with a stable MP3 relay URL (ideally one that is online 24/7).
 
 ## License
 

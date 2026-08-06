@@ -5,11 +5,12 @@
 	"name": "CozyRadio Mod",
 	"description": "Craft a Cozy Radio disc, pop it into a jukebox, and every player nearby tunes into an endless, server-synchronized internet radio stream — MP3 relays and the YouTube live radios players add themselves, decoded natively via Lavaplayer.",
 	"authors": [
-		"CozyRadio"
+		"RenderHam"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://github.com/RenderHam/cozyradio-mod",
+		"sources": "https://github.com/RenderHam/cozyradio-mod",
+		"issues": "https://github.com/RenderHam/cozyradio-mod/issues"
 	},
 	"license": "CC0-1.0",
 	"icon": "assets/cozyradio-mod/icon.png",
