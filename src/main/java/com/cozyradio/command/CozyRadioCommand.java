@@ -12,7 +12,6 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.mojang.brigadier.suggestion.Suggestions;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
@@ -66,8 +65,7 @@ public final class CozyRadioCommand {
 	private CozyRadioCommand() {
 	}
 
-	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext registryAccess,
-			Commands.CommandSelection environment) {
+	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 		dispatcher.register(Commands.literal("cozyradio")
 				.then(Commands.literal("status").executes(ctx -> status(ctx.getSource())))
 				.then(Commands.literal("list").executes(ctx -> list(ctx.getSource())))
@@ -107,10 +105,18 @@ public final class CozyRadioCommand {
 						.executes(ctx -> debug(ctx.getSource()))));
 	}
 
-	private static int status(CommandSourceStack source) {
+	/** The running manager, or null (with an error sent) if the mod isn't active. */
+	private static ServerRadioManager requireManager(CommandSourceStack source) {
 		ServerRadioManager manager = ServerRadioManager.get();
 		if (manager == null) {
 			source.sendFailure(Component.literal("Cozy Radio is not running"));
+		}
+		return manager;
+	}
+
+	private static int status(CommandSourceStack source) {
+		ServerRadioManager manager = requireManager(source);
+		if (manager == null) {
 			return 0;
 		}
 		source.sendSuccess(() -> Component.literal("Cozy Radio").withStyle(HEADER), false);
@@ -149,9 +155,8 @@ public final class CozyRadioCommand {
 	}
 
 	private static int list(CommandSourceStack source) {
-		ServerRadioManager manager = ServerRadioManager.get();
+		ServerRadioManager manager = requireManager(source);
 		if (manager == null) {
-			source.sendFailure(Component.literal("Cozy Radio is not running"));
 			return 0;
 		}
 		int current = -1;
@@ -185,7 +190,7 @@ public final class CozyRadioCommand {
 	}
 
 	private static int skip(CommandSourceStack source, int delta) throws CommandSyntaxException {
-		ServerRadioManager manager = ServerRadioManager.get();
+		ServerRadioManager manager = requireManager(source);
 		if (manager == null || !manager.hasActiveRadios()) {
 			source.sendFailure(Component.literal("No jukebox is playing the Cozy Radio disc"));
 			return 0;
@@ -207,13 +212,13 @@ public final class CozyRadioCommand {
 	}
 
 	private static int station(CommandSourceStack source, String id) throws CommandSyntaxException {
-		ServerRadioManager manager = ServerRadioManager.get();
+		ServerRadioManager manager = requireManager(source);
 		if (manager == null || !manager.hasActiveRadios()) {
 			source.sendFailure(Component.literal("No jukebox is playing the Cozy Radio disc"));
 			return 0;
 		}
 		ServerPlayer player = source.getPlayerOrException();
-		int index = findStation(manager, player, id);
+		int index = manager.resolveStationIndex(player, id);
 		if (index < 0) {
 			source.sendFailure(Component.literal("Unknown station '" + id + "'"));
 			return 0;
@@ -229,30 +234,22 @@ public final class CozyRadioCommand {
 	}
 
 	private static int add(CommandSourceStack source, String url, String label) throws CommandSyntaxException {
-		ServerRadioManager manager = ServerRadioManager.get();
+		ServerRadioManager manager = requireManager(source);
 		if (manager == null) {
-			source.sendFailure(Component.literal("Cozy Radio is not running"));
 			return 0;
 		}
 		ServerPlayer player = source.getPlayerOrException();
-		switch (manager.addPersonal(player, url, label)) {
-			case ADDED -> {
-				// addPersonal just normalized the URL successfully, so this is non-null.
-				PlaylistConfig.Station real = ServerRadioManager.buildPersonal(
-						com.cozyradio.radio.YoutubeUrl.normalize(url), label);
-				source.sendSuccess(() -> Component.literal("Added ").withStyle(MUTED)
-						.append(Component.literal(real.name()).withStyle(CURRENT))
-						.append(Component.literal(" to your stations — /cozyradio station " + real.name()
-								+ " while a jukebox is playing to listen.").withStyle(MUTED)), false);
-			}
+		ServerRadioManager.AddOutcome outcome = manager.addPersonal(player, url, label);
+		PlaylistConfig.Station station = outcome.station();
+		switch (outcome.status()) {
+			case ADDED -> source.sendSuccess(() -> Component.literal("Added ").withStyle(MUTED)
+					.append(Component.literal(station.name()).withStyle(CURRENT))
+					.append(Component.literal(" to your stations — /cozyradio station " + station.name()
+							+ " while a jukebox is playing to listen.").withStyle(MUTED)), false);
 			case INVALID_URL -> source.sendFailure(Component.literal(
 					"Only YouTube links are supported, e.g. https://www.youtube.com/watch?v=VIDEO_ID"));
-			case DUPLICATE_NAME -> {
-				PlaylistConfig.Station real = ServerRadioManager.buildPersonal(
-						com.cozyradio.radio.YoutubeUrl.normalize(url), label);
-				source.sendFailure(Component.literal("A personal station named '"
-						+ real.name() + "' already exists — choose a different name"));
-			}
+			case DUPLICATE_NAME -> source.sendFailure(Component.literal("A personal station named '"
+					+ station.name() + "' already exists — choose a different name"));
 			case LIMIT_REACHED -> source.sendFailure(Component.literal(
 					"You already have " + ServerRadioManager.MAX_PERSONAL_STATIONS
 							+ " personal stations — /cozyradio remove <name> first"));
@@ -261,9 +258,8 @@ public final class CozyRadioCommand {
 	}
 
 	private static int remove(CommandSourceStack source, String id) throws CommandSyntaxException {
-		ServerRadioManager manager = ServerRadioManager.get();
+		ServerRadioManager manager = requireManager(source);
 		if (manager == null) {
-			source.sendFailure(Component.literal("Cozy Radio is not running"));
 			return 0;
 		}
 		ServerPlayer player = source.getPlayerOrException();
@@ -278,9 +274,8 @@ public final class CozyRadioCommand {
 	}
 
 	private static int rotation(CommandSourceStack source, String mode) throws CommandSyntaxException {
-		ServerRadioManager manager = ServerRadioManager.get();
+		ServerRadioManager manager = requireManager(source);
 		if (manager == null) {
-			source.sendFailure(Component.literal("Cozy Radio is not running"));
 			return 0;
 		}
 		ServerPlayer player = source.getPlayerOrException();
@@ -314,28 +309,9 @@ public final class CozyRadioCommand {
 		return 1;
 	}
 
-	/** Effective index of a station id or label (shared or personal) for this player, or -1. */
-	private static int findStation(ServerRadioManager manager, ServerPlayer player, String id) {
-		String trimmed = id.trim();
-		for (int i = 0; i < manager.stationCountFor(player); i++) {
-			PlaylistConfig.Station station = manager.stationFor(player, i);
-			if (station != null && station.id().equalsIgnoreCase(trimmed)) {
-				return i;
-			}
-		}
-		for (int i = 0; i < manager.stationCountFor(player); i++) {
-			PlaylistConfig.Station station = manager.stationFor(player, i);
-			if (station != null && station.name() != null && station.name().equalsIgnoreCase(trimmed)) {
-				return i;
-			}
-		}
-		return -1;
-	}
-
 	private static int debug(CommandSourceStack source) {
-		ServerRadioManager manager = ServerRadioManager.get();
+		ServerRadioManager manager = requireManager(source);
 		if (manager == null) {
-			source.sendFailure(Component.literal("Cozy Radio is not running"));
 			return 0;
 		}
 		source.sendSuccess(() -> Component.literal("Cozy Radio debug").withStyle(HEADER), false);

@@ -5,7 +5,7 @@ import java.nio.ByteOrder;
 import java.nio.ShortBuffer;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 import javax.sound.sampled.AudioFormat;
@@ -47,7 +47,7 @@ public final class LavaRadioPlayer {
 	private LavaRadioPlayer() {
 	}
 
-	public static void play(String url, AtomicBoolean active, Consumer<AudioPlayer> playerRef,
+	public static void play(String url, BooleanSupplier active, Consumer<AudioPlayer> playerRef,
 			CozyRadioAudioDevice device, Runnable onReady) {
 		AudioPlayer player = null;
 		try {
@@ -66,7 +66,7 @@ public final class LavaRadioPlayer {
 			short[] samples = new short[0];
 			boolean ready = false;
 			int consecutiveFailures = 0;
-			while (active.get()) {
+			while (active.getAsBoolean()) {
 				AudioFrame audioFrame;
 				try {
 					audioFrame = player.provide(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);

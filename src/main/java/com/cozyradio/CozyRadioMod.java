@@ -54,7 +54,7 @@ public class CozyRadioMod implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		ModNetworking.registerPayloads();
-		CommandRegistrationCallback.EVENT.register(CozyRadioCommand::register);
+		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> CozyRadioCommand.register(dispatcher));
 
 		ItemGroupEvents.modifyEntriesEvent(ToolsTab.TOOLS_AND_UTILITIES)
 				.register(entries -> entries.accept(COZYRADIO_DISC));
@@ -68,6 +68,11 @@ public class CozyRadioMod implements ModInitializer {
 
 	public static Identifier id(String path) {
 		return Identifier.fromNamespaceAndPath(MOD_ID, path);
+	}
+
+	/** Resolves a config file inside {@code config/cozyradio-mod/}. */
+	public static java.nio.file.Path configPath(String fileName) {
+		return net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().resolve(MOD_ID).resolve(fileName);
 	}
 
 	/** Vanilla creative tab keys (private in CreativeModeTabs, so rebuilt here). */

@@ -48,6 +48,11 @@ public final class YoutubeUrl {
 		}
 	}
 
+	/** The {@code <videoId>} tail of a normalized watch URL (format guaranteed by {@link #normalize}). */
+	public static String videoId(String normalizedWatchUrl) {
+		return normalizedWatchUrl.substring(normalizedWatchUrl.lastIndexOf('=') + 1);
+	}
+
 	private static String shortLinkId(String path) {
 		if (path == null) {
 			return null;

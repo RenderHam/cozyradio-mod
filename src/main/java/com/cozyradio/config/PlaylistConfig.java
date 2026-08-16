@@ -10,7 +10,6 @@ import com.cozyradio.CozyRadioMod;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
-import net.fabricmc.loader.api.FabricLoader;
 
 /**
  * Server-side playlist configuration, read from
@@ -55,7 +54,7 @@ public record PlaylistConfig(int rotationMinutes, List<Station> stations) {
 	}
 
 	private static Path configPath() {
-		return FabricLoader.getInstance().getConfigDir().resolve(CozyRadioMod.MOD_ID).resolve("playlist.json");
+		return CozyRadioMod.configPath("playlist.json");
 	}
 
 	private static void writeDefault(Path path) throws IOException {

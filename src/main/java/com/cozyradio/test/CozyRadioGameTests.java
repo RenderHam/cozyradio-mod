@@ -196,8 +196,8 @@ public class CozyRadioGameTests {
 			UUID uuid = UUID.fromString("00000000-0000-0000-0000-000000000002");
 			String urlA = "https://www.youtube.com/watch?v=X4VbdwhkE10";
 			String urlB = "https://www.youtube.com/watch?v=4xDzrJKXOOY";
-			store.put(uuid, ServerRadioManager.buildPersonal(urlA, "MyLofi"));
-			com.cozyradio.config.PlaylistConfig.Station second = ServerRadioManager.buildPersonal(urlB, "MyLofi");
+			store.put(uuid, ServerRadioManager.personalStation(urlA, "MyLofi"));
+			com.cozyradio.config.PlaylistConfig.Station second = ServerRadioManager.personalStation(urlB, "MyLofi");
 			boolean nameTaken = store.get(uuid).stream().anyMatch(existing -> !existing.id().equals(second.id())
 					&& existing.name() != null && existing.name().equalsIgnoreCase(second.name()));
 			if (!nameTaken) {

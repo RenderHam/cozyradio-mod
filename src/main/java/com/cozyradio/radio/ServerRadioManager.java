@@ -167,6 +167,26 @@ public final class ServerRadioManager {
 		return count == 0 ? 0 : (currentIndexFor(player) - 1 + count) % count;
 	}
 
+	/** Resolves a station id or name (shared or personal) to its index for this player, or -1. */
+	public int resolveStationIndex(ServerPlayer player, String query) {
+		String trimmed = query.trim();
+		int idMatch = -1;
+		int nameMatch = -1;
+		for (int i = 0; i < stationCountFor(player); i++) {
+			PlaylistConfig.Station station = stationFor(player, i);
+			if (station == null) {
+				continue;
+			}
+			if (idMatch < 0 && station.id().equalsIgnoreCase(trimmed)) {
+				idMatch = i;
+			}
+			if (nameMatch < 0 && station.name() != null && station.name().equalsIgnoreCase(trimmed)) {
+				nameMatch = i;
+			}
+		}
+		return idMatch >= 0 ? idMatch : nameMatch;
+	}
+
 	// --- personal stations ---
 
 	/** The player's own stations (YouTube live links they registered). */
@@ -195,8 +215,10 @@ public final class ServerRadioManager {
 	}
 
 	/** Result of {@link #addPersonal}. */
-	public enum AddResult {
-		ADDED, INVALID_URL, LIMIT_REACHED, DUPLICATE_NAME
+	public record AddOutcome(AddStatus status, PlaylistConfig.Station station) {
+		public enum AddStatus {
+			ADDED, INVALID_URL, LIMIT_REACHED, DUPLICATE_NAME
+		}
 	}
 
 	/**
@@ -205,15 +227,10 @@ public final class ServerRadioManager {
 	 * same video replaces instead of duplicating; players select personal
 	 * stations by their name.
 	 */
-	public static PlaylistConfig.Station buildPersonal(String normalized, String label) {
-		String videoId = videoIdOf(normalized);
+	public static PlaylistConfig.Station personalStation(String normalized, String label) {
+		String videoId = YoutubeUrl.videoId(normalized);
 		String name = label == null || label.isBlank() ? "YouTube live " + videoId : label.trim();
 		return new PlaylistConfig.Station("yours-" + videoId, name, normalized, "youtube");
-	}
-
-	/** The {@code <videoId>} tail of a normalized YouTube watch URL. */
-	public static String videoIdOf(String normalized) {
-		return normalized.substring(normalized.lastIndexOf('=') + 1);
 	}
 
 	/**
@@ -221,27 +238,27 @@ public final class ServerRadioManager {
 	 * a YouTube watch link (normalized server-side); arbitrary hosts are
 	 * rejected because the client streams whatever URL is broadcast.
 	 */
-	public AddResult addPersonal(ServerPlayer player, String url, String label) {
+	public AddOutcome addPersonal(ServerPlayer player, String url, String label) {
 		String normalized = YoutubeUrl.normalize(url);
 		if (normalized == null) {
-			return AddResult.INVALID_URL;
+			return new AddOutcome(AddOutcome.AddStatus.INVALID_URL, null);
 		}
-		PlaylistConfig.Station station = buildPersonal(normalized, label);
+		PlaylistConfig.Station station = personalStation(normalized, label);
 		UUID uuid = player.getUUID();
 		boolean replacing = personalStore.get(uuid).stream().anyMatch(existing -> existing.id().equals(station.id()));
 		boolean nameTaken = personalStore.get(uuid).stream()
 				.anyMatch(existing -> !existing.id().equals(station.id())
 						&& existing.name() != null && existing.name().equalsIgnoreCase(station.name()));
 		if (nameTaken) {
-			return AddResult.DUPLICATE_NAME;
+			return new AddOutcome(AddOutcome.AddStatus.DUPLICATE_NAME, station);
 		}
 		if (!replacing && personalCountFor(player) >= MAX_PERSONAL_STATIONS) {
-			return AddResult.LIMIT_REACHED;
+			return new AddOutcome(AddOutcome.AddStatus.LIMIT_REACHED, null);
 		}
 		personalStore.put(uuid, station);
 		CozyRadioMod.LOGGER.info("{} registered personal station '{}' ({})", player.getScoreboardName(),
 				station.name(), normalized);
-		return AddResult.ADDED;
+		return new AddOutcome(AddOutcome.AddStatus.ADDED, station);
 	}
 
 	/** Removes one of the player's personal stations by name (or id); returns the removed station's name, or null. */
@@ -323,14 +340,7 @@ public final class ServerRadioManager {
 	}
 
 	private int currentIndexFor(ServerPlayer player) {
-		int override = overrideIndexFor(player);
-		if (override >= 0) {
-			return override;
-		}
-		if (!radios.isEmpty()) {
-			return effectiveIndexFor(player, radios.keySet().iterator().next());
-		}
-		return 0;
+		return Math.max(0, effectiveStationIndex(player));
 	}
 
 	private void tick(MinecraftServer server) {

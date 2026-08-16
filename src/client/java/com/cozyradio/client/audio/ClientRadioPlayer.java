@@ -34,10 +34,11 @@ public final class ClientRadioPlayer {
 	}
 
 	private static final class StreamEntry {
-		private final AtomicBoolean active = new AtomicBoolean(true);
-		private final AtomicBoolean ready = new AtomicBoolean(false);
-		private final AtomicBoolean done = new AtomicBoolean(false);
+		/** Set once when the stream must stop; CAS guarantees stop-once across threads. */
 		private final AtomicBoolean stopped = new AtomicBoolean(false);
+		private volatile boolean active = true;
+		private volatile boolean firstAudioReady;
+		private volatile boolean finished;
 		private final String stationName;
 		private final String streamUrl;
 		private volatile Thread thread;
@@ -54,8 +55,8 @@ public final class ClientRadioPlayer {
 			this.lavaPlayer = player;
 		}
 
-		private void markReady() {
-			ready.set(true);
+		private void markFirstAudioReady() {
+			firstAudioReady = true;
 			Minecraft.getInstance().execute(RadioToast::markReady);
 		}
 
@@ -63,7 +64,7 @@ public final class ClientRadioPlayer {
 			if (!stopped.compareAndSet(false, true)) {
 				return;
 			}
-			active.set(false);
+			active = false;
 			CozyRadioAudioDevice dev = device;
 			if (dev != null) {
 				dev.close();
@@ -97,7 +98,7 @@ public final class ClientRadioPlayer {
 		entry.thread.setDaemon(true);
 		entry.thread.start();
 		if (previous != null) {
-			drainInto(entry, previous);
+			handoffTo(entry, previous);
 		}
 		RadioToast.show(stationName);
 	}
@@ -123,10 +124,10 @@ public final class ClientRadioPlayer {
 	 * audio (or given up), then tears it down — removing the audible gap a
 	 * station rotation would otherwise cause.
 	 */
-	private static void drainInto(StreamEntry next, StreamEntry previous) {
+	private static void handoffTo(StreamEntry next, StreamEntry previous) {
 		Thread drainer = new Thread(() -> {
 			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(DRAIN_TIMEOUT_SECONDS);
-			while (!next.ready.get() && !next.done.get() && System.nanoTime() < deadline) {
+			while (!next.firstAudioReady && !next.finished && System.nanoTime() < deadline) {
 				sleep(50);
 			}
 			previous.stop();
@@ -145,26 +146,26 @@ public final class ClientRadioPlayer {
 	private static void playLoop(StreamEntry entry) {
 		try {
 			int retries = 0;
-			while (entry.active.get() && retries <= MAX_RETRIES) {
+			while (entry.active && retries <= MAX_RETRIES) {
 				try {
 					CozyRadioAudioDevice device = new CozyRadioAudioDevice();
 					entry.device = device;
 					try {
 						// Both station types (youtube + mp3) run through Lavaplayer:
 						// the shared manager resolves the URL to the right source.
-						LavaRadioPlayer.play(entry.streamUrl, entry.active, entry::setLavaPlayer, device,
-								entry::markReady);
+						LavaRadioPlayer.play(entry.streamUrl, () -> entry.active, entry::setLavaPlayer, device,
+								entry::markFirstAudioReady);
 					} finally {
 						device.close();
 					}
-					if (!entry.active.get()) {
+					if (!entry.active) {
 						return;
 					}
 					// The pump finished on its own (a YouTube live stream ended or its
 					// URL expired) — reconnect and re-resolve a fresh live URL.
 					CozyRadioMod.LOGGER.info("Radio stream '{}' ended; reconnecting", entry.stationName);
 				} catch (Throwable e) {
-					if (!entry.active.get()) {
+					if (!entry.active) {
 						return;
 					}
 					// Catch Throwable (not just Exception) so LinkageErrors like a
@@ -172,19 +173,19 @@ public final class ClientRadioPlayer {
 					CozyRadioMod.LOGGER.warn("Radio stream '{}' failed (attempt {}): {}", entry.stationName,
 							retries + 1, e.toString());
 				}
-				if (entry.active.get() && retries < MAX_RETRIES) {
+				if (entry.active && retries < MAX_RETRIES) {
 					sleep(RETRY_DELAY_MS);
 				}
 				retries++;
 			}
-			if (entry.active.get()) {
+			if (entry.active) {
 				CozyRadioMod.LOGGER.info(
 						"Radio stream '{}' gave up after {} retries; waiting for the next station rotation",
 						entry.stationName, MAX_RETRIES);
 				Minecraft.getInstance().execute(RadioToast::markFailed);
 			}
 		} finally {
-			entry.done.set(true);
+			entry.finished = true;
 		}
 	}
 

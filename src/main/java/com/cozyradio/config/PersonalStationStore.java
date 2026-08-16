@@ -13,14 +13,13 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.cozyradio.CozyRadioMod;
-import com.cozyradio.radio.ServerRadioManager;
+import com.cozyradio.radio.YoutubeUrl;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import net.fabricmc.loader.api.FabricLoader;
 
 /**
  * Per-player personal radio stations, persisted to
@@ -70,7 +69,7 @@ public final class PersonalStationStore {
 					// The id is an internal stable key ("yours-<videoId>").
 					// Rewrite any other form (e.g. label-embedding ids from an
 					// earlier version) so the same video always dedupes.
-					String canonical = "yours-" + ServerRadioManager.videoIdOf(station.url());
+					String canonical = "yours-" + YoutubeUrl.videoId(station.url());
 					if (!station.id().equals(canonical)) {
 						station = new PlaylistConfig.Station(canonical, station.name(), station.url(), station.type());
 						migrated = true;
@@ -171,7 +170,6 @@ public final class PersonalStationStore {
 	}
 
 	private static Path filePath() {
-		return FabricLoader.getInstance().getConfigDir().resolve(CozyRadioMod.MOD_ID)
-				.resolve("personal-stations.json");
+		return CozyRadioMod.configPath("personal-stations.json");
 	}
 }
