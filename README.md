@@ -1,7 +1,9 @@
-# CozyRadio Mod
+# CozyRadio Mod (Fabric)
 
 > **Note:** This project is roughly 90% AI-generated code, reviewed and tested by a
 > human before release — bugs are still possible, reports welcome.
+
+> **Fabric-only** — no Forge/NeoForge ports are planned. Release jars are named `cozyradio-mod-fabric-<mc-version>-<mod-version>.jar`.
 
 A [Fabric](https://fabricmc.net/) mod for Minecraft 1.21.4 that adds the **Cozy Radio
 disc** — a music disc that plays an endless, server-synchronized internet radio
@@ -189,7 +191,7 @@ authorization* above).
 ### Setup & commands
 
 ```
-./gradlew build          # compile + package → build/libs/cozyradio-mod-1.0.0.jar
+./gradlew build          # compile + package → build/libs/cozyradio-mod-fabric-1.21.4-1.1.0.jar
 ./gradlew runClient      # launch a dev client
 ./gradlew runServer      # launch a dev server
 ./gradlew runGametest    # server-side GameTests (jukebox play/stop tracking)
