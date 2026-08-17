@@ -32,31 +32,14 @@ public final class CozyRadioCommand {
 	private static final Style MUTED = Style.EMPTY.withColor(ChatFormatting.GRAY);
 	private static final Style CURRENT = Style.EMPTY.withColor(ChatFormatting.GREEN);
 
-	private static final SuggestionProvider<CommandSourceStack> STATION_SUGGESTIONS = (context, builder) -> {
-		ServerRadioManager manager = ServerRadioManager.get();
-		if (manager == null) {
-			return Suggestions.empty();
-		}
-		List<PlaylistConfig.Station> stations = new java.util.ArrayList<>(manager.stations());
-		ServerPlayer player = context.getSource().getPlayer();
-		if (player != null) {
-			stations.addAll(manager.personalFor(player));
-		}
-		for (PlaylistConfig.Station station : stations) {
-			builder.suggest(station.id());
-			builder.suggest(station.name());
-		}
-		return builder.buildFuture();
-	};
-
-	private static final SuggestionProvider<CommandSourceStack> MY_STATION_SUGGESTIONS = (context, builder) -> {
+	private static final SuggestionProvider<CommandSourceStack> PERSONAL_STATION_SUGGESTIONS = (context, builder) -> {
 		ServerRadioManager manager = ServerRadioManager.get();
 		ServerPlayer player = context.getSource().getPlayer();
 		if (manager == null || player == null) {
 			return Suggestions.empty();
 		}
 		for (PlaylistConfig.Station station : manager.personalFor(player)) {
-			builder.suggest(station.id());
+			// The id equals the player-chosen name, so a single suggestion suffices.
 			builder.suggest(station.name());
 		}
 		return builder.buildFuture();
@@ -78,7 +61,7 @@ public final class CozyRadioCommand {
 				.then(Commands.literal("station")
 						.requires(CommandSourceStack::isPlayer)
 						.then(Commands.argument("id", StringArgumentType.greedyString())
-								.suggests(STATION_SUGGESTIONS)
+								.suggests(PERSONAL_STATION_SUGGESTIONS)
 								.executes(ctx -> station(ctx.getSource(), StringArgumentType.getString(ctx, "id")))))
 				.then(Commands.literal("add")
 						.requires(CommandSourceStack::isPlayer)
@@ -90,7 +73,7 @@ public final class CozyRadioCommand {
 				.then(Commands.literal("remove")
 						.requires(CommandSourceStack::isPlayer)
 						.then(Commands.argument("id", StringArgumentType.greedyString())
-								.suggests(MY_STATION_SUGGESTIONS)
+								.suggests(PERSONAL_STATION_SUGGESTIONS)
 								.executes(ctx -> remove(ctx.getSource(), StringArgumentType.getString(ctx, "id")))))
 				.then(Commands.literal("rotation")
 						.requires(CommandSourceStack::isPlayer)
@@ -236,6 +219,11 @@ public final class CozyRadioCommand {
 	private static int add(CommandSourceStack source, String url, String label) throws CommandSyntaxException {
 		ServerRadioManager manager = requireManager(source);
 		if (manager == null) {
+			return 0;
+		}
+		if (label != null && label.chars().anyMatch(Character::isWhitespace)) {
+			source.sendFailure(Component.literal(
+					"Labels can't contain spaces — use a single word, e.g. /cozyradio add " + url + " MyLofi"));
 			return 0;
 		}
 		ServerPlayer player = source.getPlayerOrException();
