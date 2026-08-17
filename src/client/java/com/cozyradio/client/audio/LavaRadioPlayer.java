@@ -43,6 +43,13 @@ public final class LavaRadioPlayer {
 	 * handed back to the retry loop, rather than spinning forever on a broken one.
 	 */
 	private static final int MAX_CONSECUTIVE_FAILURES = 50;
+	/**
+	 * If no audio frame arrives within this long (e.g. the YouTube track's
+	 * executor died without surfacing an exception), the player is treated as
+	 * dead and handed back to the retry loop. Once the first frame has played,
+	 * transient stalls are ridden out normally.
+	 */
+	private static final long FIRST_FRAME_TIMEOUT_MS = 20_000;
 
 	private LavaRadioPlayer() {
 	}
@@ -66,6 +73,7 @@ public final class LavaRadioPlayer {
 			short[] samples = new short[0];
 			boolean ready = false;
 			int consecutiveFailures = 0;
+			long startedAt = System.currentTimeMillis();
 			while (active.getAsBoolean()) {
 				AudioFrame audioFrame;
 				try {
@@ -113,7 +121,14 @@ public final class LavaRadioPlayer {
 						}
 					}
 				} catch (TimeoutException e) {
-					// No frame yet (buffering a segment) — keep polling.
+					// No frame yet (buffering a segment) — keep polling, but a
+					// player that never produces a first frame is dead (its
+					// executor often dies without surfacing an exception).
+					if (!ready && System.currentTimeMillis() - startedAt > FIRST_FRAME_TIMEOUT_MS) {
+						CozyRadioMod.LOGGER.warn("No audio frame within {}s; handing back to the retry loop",
+								FIRST_FRAME_TIMEOUT_MS / 1000);
+						break;
+					}
 				} catch (InterruptedException e) {
 					Thread.currentThread().interrupt();
 					break;

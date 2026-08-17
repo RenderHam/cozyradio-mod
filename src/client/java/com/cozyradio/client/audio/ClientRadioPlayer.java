@@ -25,6 +25,8 @@ import net.minecraft.core.BlockPos;
 public final class ClientRadioPlayer {
 	private static final int MAX_RETRIES = 3;
 	private static final long RETRY_DELAY_MS = 5_000L;
+	/** How long to keep retrying while the one-time YouTube authorization is pending. */
+	private static final long PENDING_AUTH_RETRY_MS = 15_000L;
 	/** How long a new stream may take to produce audio before the old one is cut. */
 	private static final long DRAIN_TIMEOUT_SECONDS = 40L;
 
@@ -167,6 +169,16 @@ public final class ClientRadioPlayer {
 				} catch (Throwable e) {
 					if (!entry.active) {
 						return;
+					}
+					// While the one-time YouTube authorization is pending, keep
+					// retrying without consuming the retry budget: completing the
+					// code in the browser makes the next attempt succeed on its own.
+					if (LavaPlayerFactory.authorizationPending()) {
+						String hint = LavaPlayerFactory.authorizationHint();
+						CozyRadioMod.LOGGER.warn("Radio stream '{}' is waiting for YouTube authorization{}",
+								entry.stationName, hint == null ? "" : " — " + hint);
+						sleep(PENDING_AUTH_RETRY_MS);
+						continue;
 					}
 					// Catch Throwable (not just Exception) so LinkageErrors like a
 					// NoClassDefFoundError can't kill the stream thread outright.
