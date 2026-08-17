@@ -169,7 +169,7 @@ public final class LavaPlayerFactory {
 				Component.literal("Cozy Radio: YouTube authorization required — open ")
 .append(Component.literal(url)
 							.withStyle(style -> style
-									.withClickEvent(new ClickEvent.OpenUrl(java.net.URI.create(url)))
+									.withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))
 									.withColor(ChatFormatting.AQUA).withUnderlined(true)))
 						.append(Component.literal(" and enter code " + code + " (one-time)"))));
 	}

@@ -16,7 +16,7 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.item.CreativeModeTab;
@@ -45,11 +45,14 @@ public class CozyRadioMod implements ModInitializer {
 	public static final Item COZYRADIO_DISC = Registry.register(
 			BuiltInRegistries.ITEM,
 			id("cozyradio_disc"),
-			new CozyRadioDiscItem(new Item.Properties().setId(ResourceKey.create(Registries.ITEM, id("cozyradio_disc")))
-					.stacksTo(1).component(
-							DataComponents.JUKEBOX_PLAYABLE,
-							new JukeboxPlayable(new EitherHolder<>(
-									ResourceKey.create(Registries.JUKEBOX_SONG, id("cozy")))))));
+			new CozyRadioDiscItem(
+					new Item.Properties()
+							.stacksTo(1)
+							.component(
+									DataComponents.JUKEBOX_PLAYABLE,
+									new JukeboxPlayable(
+											new EitherHolder<>(ResourceKey.create(Registries.JUKEBOX_SONG, id("cozy"))),
+											true))));
 
 	@Override
 	public void onInitialize() {
@@ -66,8 +69,8 @@ public class CozyRadioMod implements ModInitializer {
 				(handler, server) -> ServerRadioManager.onPlayerDisconnect(handler.getPlayer()));
 	}
 
-	public static Identifier id(String path) {
-		return Identifier.fromNamespaceAndPath(MOD_ID, path);
+	public static ResourceLocation id(String path) {
+		return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
 	}
 
 	/** Resolves a config file inside {@code config/cozyradio-mod/}. */
@@ -78,6 +81,6 @@ public class CozyRadioMod implements ModInitializer {
 	/** Vanilla creative tab keys (private in CreativeModeTabs, so rebuilt here). */
 	private static final class ToolsTab {
 		public static final ResourceKey<CreativeModeTab> TOOLS_AND_UTILITIES = ResourceKey.create(
-				Registries.CREATIVE_MODE_TAB, Identifier.withDefaultNamespace("tools_and_utilities"));
+				Registries.CREATIVE_MODE_TAB, ResourceLocation.withDefaultNamespace("tools_and_utilities"));
 	}
 }
