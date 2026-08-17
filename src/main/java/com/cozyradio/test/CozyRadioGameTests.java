@@ -134,8 +134,8 @@ public class CozyRadioGameTests {
 		Path path = FabricLoader.getInstance().getConfigDir().resolve("cozyradio-mod/personal-stations.json");
 		try {
 			Files.createDirectories(path.getParent());
-			// Legacy file mixed two schemes: the current canonical "yours-<videoId>"
-			// and the old label-embedding id, which must be rewritten.
+			// Legacy file mixed two schemes: the "yours-<videoId>" id and the old
+			// label-embedding id, both of which must be rewritten to the name.
 			Files.writeString(path,
 					"{\"00000000-0000-0000-0000-000000000001\":["
 							+ "{\"id\":\"yours-X4VbdwhkE10\",\"name\":\"lofi\",\"url\":\"https://www.youtube.com/watch?v=X4VbdwhkE10\",\"type\":\"youtube\"},"
@@ -150,12 +150,12 @@ public class CozyRadioGameTests {
 				return;
 			}
 			List<com.cozyradio.config.PlaylistConfig.Station> migrated = store.get(uuid);
-			if (!migrated.get(0).id().equals("yours-X4VbdwhkE10")) {
-				helper.fail("canonical id must stay unchanged, got " + migrated.get(0).id());
+			if (!migrated.get(0).id().equals("lofi")) {
+				helper.fail("yours- id did not rewrite to the name, got " + migrated.get(0).id());
 				return;
 			}
-			if (!migrated.get(1).id().equals("yours-4xDzrJKXOOY")) {
-				helper.fail("label-embedding id did not canonicalize, got " + migrated.get(1).id());
+			if (!migrated.get(1).id().equals("MyLofi")) {
+				helper.fail("label-embedding id did not rewrite to the name, got " + migrated.get(1).id());
 				return;
 			}
 			store.setRotate(uuid, true);
@@ -165,7 +165,7 @@ public class CozyRadioGameTests {
 				return;
 			}
 			List<com.cozyradio.config.PlaylistConfig.Station> reloaded = store.get(uuid);
-			if (!reloaded.get(1).id().equals("yours-4xDzrJKXOOY")) {
+			if (!reloaded.get(1).id().equals("MyLofi")) {
 				helper.fail("migrated id not persisted, got " + reloaded.get(1).id());
 				return;
 			}
@@ -200,12 +200,24 @@ public class CozyRadioGameTests {
 			com.cozyradio.config.PlaylistConfig.Station second = ServerRadioManager.personalStation(urlB, "MyLofi");
 			boolean nameTaken = store.get(uuid).stream().anyMatch(existing -> !existing.id().equals(second.id())
 					&& existing.name() != null && existing.name().equalsIgnoreCase(second.name()));
-			if (!nameTaken) {
-				helper.fail("duplicate name must be detected before adding");
+			if (nameTaken) {
+				helper.fail("re-adding the same name must replace, not be rejected as taken");
+				return;
+			}
+			store.put(uuid, second);
+			if (store.count(uuid) != 1 || !store.get(uuid).get(0).url().equals(urlB)) {
+				helper.fail("re-adding the same name must replace the station");
+				return;
+			}
+			com.cozyradio.config.PlaylistConfig.Station variant = ServerRadioManager.personalStation(urlB, "mylofi");
+			boolean variantTaken = store.get(uuid).stream().anyMatch(existing -> !existing.id().equals(variant.id())
+					&& existing.name() != null && existing.name().equalsIgnoreCase(variant.name()));
+			if (!variantTaken) {
+				helper.fail("case-variant duplicate name must be detected");
 				return;
 			}
 			if (store.count(uuid) != 1) {
-				helper.fail("duplicate name must not be added");
+				helper.fail("case-variant duplicate must not be added");
 				return;
 			}
 			helper.succeed();

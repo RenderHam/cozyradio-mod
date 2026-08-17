@@ -13,7 +13,6 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.cozyradio.CozyRadioMod;
-import com.cozyradio.radio.YoutubeUrl;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -66,12 +65,13 @@ public final class PersonalStationStore {
 					if (station == null || station.id() == null || station.url() == null) {
 						continue;
 					}
-					// The id is an internal stable key ("yours-<videoId>").
-					// Rewrite any other form (e.g. label-embedding ids from an
-					// earlier version) so the same video always dedupes.
-					String canonical = "yours-" + YoutubeUrl.videoId(station.url());
-					if (!station.id().equals(canonical)) {
-						station = new PlaylistConfig.Station(canonical, station.name(), station.url(), station.type());
+					// The id is the player-chosen name. Rewrite any other form
+					// (e.g. "yours-<videoId>" or label-embedding ids from earlier
+					// versions) so stations are keyed by their name.
+					if (station.name() != null && !station.name().isBlank()
+							&& !station.id().equals(station.name())) {
+						station = new PlaylistConfig.Station(station.name(), station.name(), station.url(),
+								station.type());
 						migrated = true;
 					}
 					if (ids.add(station.id())) {

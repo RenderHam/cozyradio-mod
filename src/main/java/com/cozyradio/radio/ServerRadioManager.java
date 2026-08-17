@@ -223,14 +223,13 @@ public final class ServerRadioManager {
 
 	/**
 	 * Builds a personal station entry from a normalized YouTube watch URL. The
-	 * id is an internal stable key ({@code yours-<videoId>}) so re-adding the
-	 * same video replaces instead of duplicating; players select personal
-	 * stations by their name.
+	 * id is the player-chosen name, so stations are keyed (and selected) by
+	 * name; re-adding the same name replaces the station's URL.
 	 */
 	public static PlaylistConfig.Station personalStation(String normalized, String label) {
 		String videoId = YoutubeUrl.videoId(normalized);
 		String name = label == null || label.isBlank() ? "YouTube live " + videoId : label.trim();
-		return new PlaylistConfig.Station("yours-" + videoId, name, normalized, "youtube");
+		return new PlaylistConfig.Station(name, name, normalized, "youtube");
 	}
 
 	/**
