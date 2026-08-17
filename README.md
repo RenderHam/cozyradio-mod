@@ -1,8 +1,7 @@
 # CozyRadio Mod
 
-> **⚠️ Experimental — proceed with caution.** This mod is still at the experimental
-> stage. Expect bugs, occasional breakage, and config/save incompatibilities between
-> versions. It is not feature-complete; not recommended for production servers.
+> **Note:** This project is roughly 90% AI-generated code, reviewed and tested by a
+> human before release — bugs are still possible, reports welcome.
 
 A [Fabric](https://fabricmc.net/) mod for Minecraft 1.21.11 that adds the **Cozy Radio
 disc** — a music disc that plays an endless, server-synchronized internet radio
@@ -59,8 +58,8 @@ jukebox is playing the Cozy Radio disc, and apply per player until the next rota
 | `/cozyradio list`      | All stations (yours are marked ★); marks the one you're hearing |
 | `/cozyradio next`      | Skip to the next station (per player)               |
 | `/cozyradio prev`      | Go back to the previous station (per player)        |
-| `/cozyradio station <name>` | Jump to a station by name (shared or yours; tab-complete supported) |
-| `/cozyradio add <url> [label]` | Register a YouTube live stream as *your* station (max 5) |
+| `/cozyradio station <name>` | Jump to a station by name (tab-complete: *your* stations) |
+| `/cozyradio add <url> [label]` | Register a YouTube live stream as *your* station (max 5; label must be a single word) |
 | `/cozyradio remove <name>` | Remove one of your personal stations by name (tab-complete supported) |
 | `/cozyradio rotation on\|off` | Cycle the rotation through *your* personal stations (no-arg shows state) |
 | `/cozyradio debug`     | Op-only: jukebox positions, listener streams        |
@@ -77,17 +76,22 @@ station list:
 /cozyradio station MyLofi   # select by name, case-insensitive
 ```
 
-- Personal stations are identified by their label — `/cozyradio station` and
-  `/cozyradio remove` take the station's name (case-insensitive). The id stored
-  on disk is internal only; files from older versions are migrated automatically
-  when loaded.
+- Personal stations are identified by their name — `/cozyradio station` and
+  `/cozyradio remove` take the station's label (case-insensitive), and the id
+  stored on disk is that same name. `/cozyradio station` tab-completes only
+  *your* stations. Files from older versions (which used `yours-<videoId>` ids)
+  are migrated automatically when loaded.
+
+- Labels must be a single word (no spaces): `/cozyradio add <url> MyLofi`, not
+  `My Lofi`.
 
 - Accepted links: `www.youtube.com/watch?v=…`, `youtu.be/…`, `music.youtube.com/…`
   (plain `http` works too). Anything else — including MP3 relay URLs — is rejected,
   because the client streams whatever the server broadcasts and YouTube-only keeps
   servers from pointing players' clients at arbitrary hosts.
 - Stations are saved to `config/cozyradio-mod/personal-stations.json` and survive
-  restarts; re-adding the same video replaces it instead of duplicating.
+  restarts; re-adding the same name replaces that station's URL instead of
+  duplicating (a differently-cased name is rejected as a duplicate).
 - Personal stations play only when *you* pick them (they never appear in the shared
   rotation); other players near the same jukebox keep their own stations until the
   rotation boundary.
@@ -101,6 +105,26 @@ station list:
   download URL expires after a few hours and the client re-resolves the `watch?v=`
   URL automatically; the station's video ID dies when the 24/7 broadcast restarts —
   just remove it and add the current one.
+
+### YouTube authorization (one-time)
+
+YouTube bot-checks anonymous Lavaplayer requests, so each player's client
+authorizes YouTube access once through YouTube's official device flow. When a
+YouTube station is played without a saved token, the client posts a message in
+the **in-game chat** (the link is clickable):
+
+```
+Cozy Radio: YouTube authorization required — open <url> and enter code <code>
+```
+
+Click the link (or open it in any browser on any device), sign in with any Google
+account, enter the code and allow access. The client polls automatically, saves
+the refresh token to `config/cozyradio-mod/youtube-oauth.json`, and starts
+playing — no restart needed. While the authorization is pending, YouTube stations
+stay silent (MP3 stations keep playing); once you complete the code, the waiting
+stream resumes on its own. This happens **once per client**; the server never
+needs a token. If a code expires before you finish, a fresh one is issued
+automatically.
 
 ## Configuration
 
@@ -134,9 +158,9 @@ Each station has a `type`:
 > famous Lofi Girl `jfKfPfyJRdk` ID died in 2026. That's why no YouTube station ships
 > in the default playlist; players add current ones with `/cozyradio add`. Each live
 > stream's download URL also expires after a few hours — the client detects this,
-> re-resolves the `watch?v=` URL and continues automatically. On a network that blocks
-> anonymous YouTube access you may need OAuth for the embedded Lavaplayer (see the
-> caveat below).
+> re-resolves the `watch?v=` URL and continues automatically. On networks where
+> YouTube bot-checks anonymous requests, the client uses its one-time OAuth flow
+> instead (see *YouTube authorization* above).
 
 Station URLs are resolved on the client, so any mod can add stations; the server only
 forwards the playlist.
@@ -151,9 +175,14 @@ stream…" and `latest.log` for `(cozyradio-mod)` entries.
 **A station goes silent or fails to load** — radio relay URLs change occasionally. Update
 the station's `url` in `config/cozyradio-mod/playlist.json` and restart the server.
 
+**A YouTube station stays silent** — check the in-game chat for the
+`Cozy Radio: YouTube authorization required` message and complete the one-time
+authorization (see *YouTube authorization* above); the stream resumes on its own.
+
 **A YouTube station stops** — live-stream IDs die whenever the 24/7 broadcast restarts.
-Remove the station and `/cozyradio add` the current URL. On networks that block anonymous
-YouTube access, the embedded Lavaplayer may need OAuth (see the Configuration caveats above).
+Remove the station and `/cozyradio add` the current URL. If YouTube bot-checks your
+network, the client authorizes via its one-time OAuth flow automatically (see *YouTube
+authorization* above).
 
 ## Development
 
