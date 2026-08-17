@@ -4,6 +4,10 @@ plugins {
 }
 
 version = project.mod_version
+
+base {
+	archivesName = "cozyradio-mod-fabric-${project.minecraft_version}"
+}
 group = project.maven_group
 
 repositories {
