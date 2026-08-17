@@ -2,7 +2,7 @@
 	"schemaVersion": 1,
 	"id": "cozyradio-mod",
 	"version": "${version}",
-	"name": "CozyRadio Mod",
+	"name": "CozyRadio Mod (Fabric)",
 	"description": "Craft a Cozy Radio disc, pop it into a jukebox, and every player nearby tunes into an endless, server-synchronized internet radio stream — MP3 relays and the YouTube live radios players add themselves, decoded natively via Lavaplayer.",
 	"authors": [
 		"RenderHam"
