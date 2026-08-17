@@ -1,4 +1,5 @@
 {
+  "replace": false,
   "values": [
     "minecraft:music_disc_13",
     "minecraft:music_disc_cat",
@@ -16,10 +17,6 @@
     "minecraft:music_disc_pigstep",
     "minecraft:music_disc_relic",
     "minecraft:music_disc_5",
-    "minecraft:music_disc_creator",
-    "minecraft:music_disc_creator_music_box",
-    "minecraft:music_disc_precipice",
-    "minecraft:music_disc_tears",
-    "minecraft:music_disc_lava_chicken"
+    "cozyradio-mod:cozyradio_disc"
   ]
 }

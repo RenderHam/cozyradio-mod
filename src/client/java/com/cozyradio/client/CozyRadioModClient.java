@@ -3,6 +3,7 @@ package com.cozyradio.client;
 import com.cozyradio.CozyRadioMod;
 import com.cozyradio.client.audio.ClientRadioPlayer;
 import com.cozyradio.client.hud.RadioToast;
+import com.cozyradio.network.ModNetworking;
 import com.cozyradio.network.StationStartPayload;
 import com.cozyradio.network.StationStopPayload;
 import net.fabricmc.api.ClientModInitializer;
@@ -13,19 +14,23 @@ import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 public class CozyRadioModClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
-		ClientPlayNetworking.registerGlobalReceiver(StationStartPayload.TYPE, (payload, context) ->
-				context.client().execute(() -> {
-					CozyRadioMod.LOGGER.info("Received station start: {} → '{}' ({})",
-							payload.jukeboxPos().toShortString(), payload.stationName(), payload.stationId());
-ClientRadioPlayer.start(payload.jukeboxPos(), payload.stationId(),
+		ClientPlayNetworking.registerGlobalReceiver(ModNetworking.STATION_START, (client, handler, buf, responseSender) -> {
+			StationStartPayload payload = StationStartPayload.read(buf);
+			client.execute(() -> {
+				CozyRadioMod.LOGGER.info("Received station start: {} → '{}' ({})",
+						payload.jukeboxPos().toShortString(), payload.stationName(), payload.stationId());
+				ClientRadioPlayer.start(payload.jukeboxPos(), payload.stationId(),
 						payload.stationName(), payload.streamUrl());
-				}));
+			});
+		});
 
-		ClientPlayNetworking.registerGlobalReceiver(StationStopPayload.TYPE, (payload, context) ->
-				context.client().execute(() -> {
-					CozyRadioMod.LOGGER.info("Received station stop: {}", payload.jukeboxPos().toShortString());
-					ClientRadioPlayer.stop(payload.jukeboxPos());
-				}));
+		ClientPlayNetworking.registerGlobalReceiver(ModNetworking.STATION_STOP, (client, handler, buf, responseSender) -> {
+			StationStopPayload payload = StationStopPayload.read(buf);
+			client.execute(() -> {
+				CozyRadioMod.LOGGER.info("Received station stop: {}", payload.jukeboxPos().toShortString());
+				ClientRadioPlayer.stop(payload.jukeboxPos());
+			});
+		});
 
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			ClientRadioPlayer.stopAll();

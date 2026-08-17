@@ -1,6 +1,5 @@
 package com.cozyradio.client.hud;
 
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -57,7 +56,7 @@ public final class RadioToast {
 		failed = false;
 	}
 
-	public static void render(GuiGraphics graphics, DeltaTracker deltaTracker) {
+	public static void render(GuiGraphics graphics, float tickDelta) {
 		String name = stationName;
 		if (name == null) {
 			return;

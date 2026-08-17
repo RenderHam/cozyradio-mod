@@ -1,6 +1,5 @@
 {
   "type": "minecraft:crafting_shaped",
-  "category": "misc",
   "pattern": [
     "JD"
   ],
@@ -9,7 +8,6 @@
     "D": "minecraft:diamond"
   },
   "result": {
-    "id": "cozyradio-mod:cozyradio_disc",
-    "count": 1
+    "item": "cozyradio-mod:cozyradio_disc"
   }
 }

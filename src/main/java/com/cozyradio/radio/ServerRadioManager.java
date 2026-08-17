@@ -9,9 +9,7 @@ import java.util.UUID;
 import com.cozyradio.CozyRadioMod;
 import com.cozyradio.config.PersonalStationStore;
 import com.cozyradio.config.PlaylistConfig;
-import com.cozyradio.network.StationStartPayload;
-import com.cozyradio.network.StationStopPayload;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import com.cozyradio.network.ModNetworking;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
@@ -381,8 +379,8 @@ public final class ServerRadioManager {
 				}
 				CozyRadioMod.LOGGER.info("Sending station start to {} for jukebox {}: '{}'",
 						player.getScoreboardName(), entry.getKey().toShortString(), station.name());
-				ServerPlayNetworking.send(player, new StationStartPayload(
-						entry.getKey(), station.id(), station.name(), station.type(), station.url()));
+				ModNetworking.sendStationStart(player, entry.getKey(), station.id(), station.name(),
+						station.type(), station.url());
 			}
 		}
 
@@ -390,7 +388,7 @@ public final class ServerRadioManager {
 			if (!desired.containsKey(pos)) {
 				CozyRadioMod.LOGGER.info("Sending station stop to {} for jukebox {}",
 						player.getScoreboardName(), pos.toShortString());
-				ServerPlayNetworking.send(player, new StationStopPayload(pos));
+				ModNetworking.sendStationStop(player, pos);
 			}
 		}
 

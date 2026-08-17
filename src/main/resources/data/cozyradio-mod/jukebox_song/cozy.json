@@ -1,8 +1,0 @@
-{
-  "comparator_output": 15,
-  "description": {
-    "translate": "jukebox_song.cozyradio-mod.cozy"
-  },
-  "length_in_seconds": 2592000.0,
-  "sound_event": "cozyradio-mod:radio"
-}

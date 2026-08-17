@@ -4,7 +4,8 @@ import com.cozyradio.CozyRadioMod;
 import com.cozyradio.config.PersonalStationStore;
 import com.cozyradio.radio.ServerRadioManager;
 import com.cozyradio.radio.YoutubeUrl;
-import net.fabricmc.fabric.api.gametest.v1.GameTest;
+import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
+import net.minecraft.gametest.framework.GameTest;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -27,18 +28,18 @@ import java.util.UUID;
 public class CozyRadioGameTests {
 	private static final BlockPos JUKEBOX = new BlockPos(2, 1, 2);
 
-	@GameTest
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void cozyDiscStartsRadio(GameTestHelper helper) {
 		helper.setBlock(JUKEBOX, Blocks.JUKEBOX);
-		JukeboxBlockEntity blockEntity = helper.getBlockEntity(JUKEBOX, JukeboxBlockEntity.class);
+		JukeboxBlockEntity blockEntity = (JukeboxBlockEntity) helper.getBlockEntity(JUKEBOX);
 		BlockPos absolutePos = helper.absolutePos(JUKEBOX);
-		blockEntity.setTheItem(new ItemStack(CozyRadioMod.COZYRADIO_DISC));
+		blockEntity.setItem(0, new ItemStack(CozyRadioMod.COZYRADIO_DISC));
 		helper.runAfterDelay(1, () -> {
 			if (ServerRadioManager.get() == null || !ServerRadioManager.get().isPlaying(absolutePos)) {
 				helper.fail("Radio not tracked after Cozy Radio disc inserted");
 				return;
 			}
-			blockEntity.setTheItem(ItemStack.EMPTY);
+			blockEntity.popOutRecord();
 			helper.runAfterDelay(1, () -> {
 				if (ServerRadioManager.get().isPlaying(absolutePos)) {
 					helper.fail("Radio still tracked after disc removed");
@@ -49,12 +50,12 @@ public class CozyRadioGameTests {
 		});
 	}
 
-	@GameTest
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void vanillaDiscDoesNotStartRadio(GameTestHelper helper) {
 		helper.setBlock(JUKEBOX, Blocks.JUKEBOX);
-		JukeboxBlockEntity blockEntity = helper.getBlockEntity(JUKEBOX, JukeboxBlockEntity.class);
+		JukeboxBlockEntity blockEntity = (JukeboxBlockEntity) helper.getBlockEntity(JUKEBOX);
 		BlockPos absolutePos = helper.absolutePos(JUKEBOX);
-		blockEntity.setTheItem(new ItemStack(Items.MUSIC_DISC_13));
+		blockEntity.setItem(0, new ItemStack(Items.MUSIC_DISC_13));
 		helper.runAfterDelay(1, () -> {
 			if (ServerRadioManager.get().isPlaying(absolutePos)) {
 				helper.fail("Vanilla disc must not start the Cozy Radio");
@@ -64,7 +65,7 @@ public class CozyRadioGameTests {
 		});
 	}
 
-	@GameTest
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void managerExistsOnServerStart(GameTestHelper helper) {
 		if (ServerRadioManager.get() == null) {
 			helper.fail("ServerRadioManager was not created on server start");
@@ -73,7 +74,7 @@ public class CozyRadioGameTests {
 		helper.succeed();
 	}
 
-	@GameTest
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void youtubeUrlNormalizer(GameTestHelper helper) {
 		String can = "https://www.youtube.com/watch?v=X4VbdwhkE10";
 		assertEquals(helper, can, YoutubeUrl.normalize("https://www.youtube.com/watch?v=X4VbdwhkE10"), "watch link");
@@ -117,7 +118,7 @@ public class CozyRadioGameTests {
 		}
 	}
 
-	@GameTest
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void effectiveRotationIndex(GameTestHelper helper) {
 		long rot = 300_000L;
 		assertIndex(helper, 0, ServerRadioManager.effectiveRotationIndex(0, rot, 3, 2, false), "off start");
@@ -129,7 +130,7 @@ public class CozyRadioGameTests {
 		helper.succeed();
 	}
 
-	@GameTest
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void personalStationStoreMigration(GameTestHelper helper) {
 		Path path = FabricLoader.getInstance().getConfigDir().resolve("cozyradio-mod/personal-stations.json");
 		try {
@@ -185,7 +186,7 @@ public class CozyRadioGameTests {
 		}
 	}
 
-	@GameTest
+	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
 	public void personalStationDuplicateNameRejected(GameTestHelper helper) {
 		Path path = FabricLoader.getInstance().getConfigDir().resolve("cozyradio-mod/personal-stations.json");
 		try {
