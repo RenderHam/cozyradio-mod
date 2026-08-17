@@ -84,7 +84,7 @@ public final class CozyRadioCommand {
 								.executes(ctx -> rotation(ctx.getSource(),
 										StringArgumentType.getString(ctx, "mode")))))
 				.then(Commands.literal("debug")
-						.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+						.requires(source -> source.hasPermission(Commands.LEVEL_GAMEMASTERS))
 						.executes(ctx -> debug(ctx.getSource()))));
 	}
 

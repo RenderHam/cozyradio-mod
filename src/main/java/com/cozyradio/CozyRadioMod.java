@@ -45,11 +45,15 @@ public class CozyRadioMod implements ModInitializer {
 	public static final Item COZYRADIO_DISC = Registry.register(
 			BuiltInRegistries.ITEM,
 			id("cozyradio_disc"),
-			new CozyRadioDiscItem(new Item.Properties().setId(ResourceKey.create(Registries.ITEM, id("cozyradio_disc")))
-					.stacksTo(1).component(
-							DataComponents.JUKEBOX_PLAYABLE,
-							new JukeboxPlayable(new EitherHolder<>(
-									ResourceKey.create(Registries.JUKEBOX_SONG, id("cozy")))))));
+			new CozyRadioDiscItem(
+					new Item.Properties()
+							.setId(ResourceKey.create(Registries.ITEM, id("cozyradio_disc")))
+							.stacksTo(1)
+							.component(
+									DataComponents.JUKEBOX_PLAYABLE,
+									new JukeboxPlayable(
+											new EitherHolder<>(ResourceKey.create(Registries.JUKEBOX_SONG, id("cozy"))),
+											true))));
 
 	@Override
 	public void onInitialize() {

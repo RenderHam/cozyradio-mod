@@ -3,14 +3,14 @@
 > **Note:** This project is roughly 90% AI-generated code, reviewed and tested by a
 > human before release — bugs are still possible, reports welcome.
 
-A [Fabric](https://fabricmc.net/) mod for Minecraft 1.21.9 that adds the **Cozy Radio
+A [Fabric](https://fabricmc.net/) mod for Minecraft 1.21.4 that adds the **Cozy Radio
 disc** — a music disc that plays an endless, server-synchronized internet radio
 stream for every player near a jukebox.
 
 ## Requirements
 
-- Minecraft **1.21.9** with [Fabric Loader](https://fabricmc.net/use/installer/) **0.19.3+**
-- [Fabric API](https://modrinth.com/mod/fabric-api) (1.21.9 build)
+- Minecraft **1.21.4** with [Fabric Loader](https://fabricmc.net/use/installer/) **0.19.3+**
+- [Fabric API](https://modrinth.com/mod/fabric-api) (1.21.4 build)
 - Java **21+**
 - Install the mod on the **server and every client** (or in singleplayer)
 
@@ -41,7 +41,7 @@ stream for every player near a jukebox.
 
 ## Usage
 
-1. Install Fabric Loader + Fabric API on a 1.21.9 client *and* server (or singleplayer).
+1. Install Fabric Loader + Fabric API on a 1.21.4 client *and* server (or singleplayer).
 2. Drop `cozyradio-mod-*.jar` into the `mods/` folder of both.
 3. Craft the disc (`jukebox` + `diamond`), place a jukebox, insert the disc.
 4. On first server start, the mod writes its config to
