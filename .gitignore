@@ -42,3 +42,12 @@ hs_err_*.log
 replay_*.log
 *.hprof
 *.jfr
+
+# agent tooling & generated knowledge graph
+
+.agents/
+.claude/
+.opencode/
+AGENTS.md
+skills-lock.json
+graphify-out/
