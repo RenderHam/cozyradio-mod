@@ -7,7 +7,6 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.cozyradio.CozyRadioMod;
-import com.cozyradio.config.PersonalStationStore;
 import com.cozyradio.config.PlaylistConfig;
 import com.cozyradio.network.StationStartPayload;
 import com.cozyradio.network.StationStopPayload;
@@ -44,7 +43,8 @@ public final class ServerRadioManager {
 
 	private final List<PlaylistConfig.Station> stations;
 	private final long rotationMillis;
-	private final PersonalStationStore personalStore = new PersonalStationStore();
+	/** Personal-station persistence and validation; index composition stays here. */
+	private final PersonalStationRegistry personalRegistry = new PersonalStationRegistry();
 	/** jukeboxPos → wall-clock time the radio started playing. */
 	private final Map<BlockPos, Long> radios = new HashMap<>();
 	/** player → jukeboxPos → station index currently broadcast to that player. */
@@ -56,7 +56,7 @@ public final class ServerRadioManager {
 	private ServerRadioManager(PlaylistConfig config) {
 		this.stations = config.stations();
 		this.rotationMillis = config.rotationMillis();
-		this.personalStore.load();
+		this.personalRegistry.load();
 	}
 
 	public static void start(MinecraftServer server) {
@@ -135,7 +135,9 @@ public final class ServerRadioManager {
 
 	/** Map of player → jukebox → station index currently broadcast (debug only). */
 	public Map<ServerPlayer, Map<BlockPos, Integer>> listening() {
-		return listening;
+		Map<ServerPlayer, Map<BlockPos, Integer>> snapshot = new HashMap<>();
+		listening.forEach((player, entries) -> snapshot.put(player, Map.copyOf(entries)));
+		return snapshot;
 	}
 
 	// --- per-player station controls ---
@@ -191,17 +193,17 @@ public final class ServerRadioManager {
 
 	/** The player's own stations (YouTube live links they registered). */
 	public List<PlaylistConfig.Station> personalFor(ServerPlayer player) {
-		return personalStore.get(player.getUUID());
+		return personalRegistry.forPlayer(player);
 	}
 
 	/** Number of stations this player can select: shared playlist + theirs. */
 	public int stationCountFor(ServerPlayer player) {
-		return stations.size() + personalStore.count(player.getUUID());
+		return stations.size() + personalRegistry.countFor(player);
 	}
 
 	/** Count of the player's registered personal stations. */
 	public int personalCountFor(ServerPlayer player) {
-		return personalStore.count(player.getUUID());
+		return personalRegistry.countFor(player);
 	}
 
 	/** Resolves an index in the player's effective station space to its metadata. */
@@ -238,52 +240,17 @@ public final class ServerRadioManager {
 	 * rejected because the client streams whatever URL is broadcast.
 	 */
 	public AddOutcome addPersonal(ServerPlayer player, String url, String label) {
-		String normalized = YoutubeUrl.normalize(url);
-		if (normalized == null) {
-			return new AddOutcome(AddOutcome.AddStatus.INVALID_URL, null);
-		}
-		PlaylistConfig.Station station = personalStation(normalized, label);
-		UUID uuid = player.getUUID();
-		boolean replacing = personalStore.get(uuid).stream().anyMatch(existing -> existing.id().equals(station.id()));
-		boolean nameTaken = personalStore.get(uuid).stream()
-				.anyMatch(existing -> !existing.id().equals(station.id())
-						&& existing.name() != null && existing.name().equalsIgnoreCase(station.name()));
-		if (nameTaken) {
-			return new AddOutcome(AddOutcome.AddStatus.DUPLICATE_NAME, station);
-		}
-		if (!replacing && personalCountFor(player) >= MAX_PERSONAL_STATIONS) {
-			return new AddOutcome(AddOutcome.AddStatus.LIMIT_REACHED, null);
-		}
-		personalStore.put(uuid, station);
-		CozyRadioMod.LOGGER.info("{} registered personal station '{}' ({})", player.getScoreboardName(),
-				station.name(), normalized);
-		return new AddOutcome(AddOutcome.AddStatus.ADDED, station);
+		return personalRegistry.add(player, url, label);
 	}
 
 	/** Removes one of the player's personal stations by name (or id); returns the removed station's name, or null. */
 	public String removePersonalName(ServerPlayer player, String name) {
-		String trimmed = name.trim();
-		PlaylistConfig.Station target = null;
-		for (PlaylistConfig.Station station : personalFor(player)) {
-			if (station.id().equalsIgnoreCase(trimmed)
-					|| station.name() != null && station.name().equalsIgnoreCase(trimmed)) {
-				target = station;
-				break;
-			}
-		}
-		if (target == null) {
-			return null;
-		}
-		if (!personalStore.remove(player.getUUID(), target.id())) {
-			return null;
-		}
-		CozyRadioMod.LOGGER.info("{} removed personal station '{}'", player.getScoreboardName(), target.name());
-		return target.name();
+		return personalRegistry.removeByName(player, name);
 	}
 
 	/** Whether the player's automatic rotation cycles their personal stations. */
 	public boolean personalRotationFor(ServerPlayer player) {
-		return personalStore.isRotate(player.getUUID());
+		return personalRegistry.rotatesFor(player);
 	}
 
 	/**
@@ -293,11 +260,7 @@ public final class ServerRadioManager {
 	 * rotation boundary.
 	 */
 	public void setPersonalRotation(ServerPlayer player, boolean on) {
-		if (on == personalRotationFor(player)) {
-			return;
-		}
-		personalStore.setRotate(player.getUUID(), on);
-		CozyRadioMod.LOGGER.info("{} turned personal rotation {}", player.getScoreboardName(), on ? "on" : "off");
+		personalRegistry.setRotates(player, on);
 	}
 
 	/**
@@ -332,10 +295,31 @@ public final class ServerRadioManager {
 
 	/** Effective station index for the first active jukebox, or -1 if none plays. */
 	public int effectiveStationIndex(ServerPlayer player) {
-		if (radios.isEmpty()) {
-			return -1;
+		BlockPos first = activeRadioWithLowestPosition();
+		return first == null ? -1 : effectiveIndexFor(player, first);
+	}
+
+	/**
+	 * Deterministic pick among active jukeboxes so commands like next/prev
+	 * behave the same regardless of HashMap iteration order when several are
+	 * playing.
+	 */
+	private BlockPos activeRadioWithLowestPosition() {
+		BlockPos best = null;
+		for (BlockPos pos : radios.keySet()) {
+			if (best == null || compareBlockPos(pos, best) < 0) {
+				best = pos;
+			}
 		}
-		return effectiveIndexFor(player, radios.keySet().iterator().next());
+		return best;
+	}
+
+	private static int compareBlockPos(BlockPos a, BlockPos b) {
+		int c = Integer.compare(a.getX(), b.getX());
+		if (c == 0) {
+			c = Integer.compare(a.getY(), b.getY());
+		}
+		return c == 0 ? Integer.compare(a.getZ(), b.getZ()) : c;
 	}
 
 	private int currentIndexFor(ServerPlayer player) {
@@ -350,6 +334,12 @@ public final class ServerRadioManager {
 		// sessions don't accumulate stale entries per rotation.
 		long now = System.currentTimeMillis();
 		overrides.entrySet().removeIf(entry -> now - entry.getValue().startedAtMillis() >= rotationMillis);
+		// Idle fast path: with no radios and nothing ever sent there is no work.
+		// (radios empty but listening non-empty still falls through so final
+		// station-stop messages go out.)
+		if (radios.isEmpty() && listening.isEmpty()) {
+			return;
+		}
 		for (ServerLevel level : server.getAllLevels()) {
 			for (ServerPlayer player : level.players()) {
 				syncPlayer(player);

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+	<!--
+	  Deliberate patterns in this codebase, excluded with rationale:
+
+	  - EI_EXPOSE_REP / EI_EXPOSE_REP2: PlaylistConfig and its Station record are
+	    Gson-deserialized config records whose lists are treated as immutable
+	    after load; ServerRadioManager.stations() returns that list by design so
+	    commands can render the playlist without copying on every status call.
+
+	  - MS_EXPOSE_REP: ServerRadioManager.instance is a mod-lifecycle singleton
+	    (set in start()/stop() from Fabric server lifecycle callbacks, read-only
+	    elsewhere). This is the standard Fabric mod pattern.
+	-->
+	<Match>
+		<Or>
+			<Bug pattern="EI_EXPOSE_REP"/>
+			<Bug pattern="EI_EXPOSE_REP2"/>
+			<Bug pattern="MS_EXPOSE_REP"/>
+		</Or>
+	</Match>
+</FindBugsFilter>

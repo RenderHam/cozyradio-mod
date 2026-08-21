@@ -58,7 +58,10 @@ public record PlaylistConfig(int rotationMinutes, List<Station> stations) {
 	}
 
 	private static void writeDefault(Path path) throws IOException {
-		Files.createDirectories(path.getParent());
+		Path parent = path.getParent();
+		if (parent != null) {
+			Files.createDirectories(parent);
+		}
 		JsonObject root = PRETTY_GSON.toJsonTree(defaults()).getAsJsonObject();
 		Files.writeString(path, PRETTY_GSON.toJson(root) + System.lineSeparator(), StandardCharsets.UTF_8);
 		CozyRadioMod.LOGGER.info("Wrote default playlist to {}", path);

@@ -132,6 +132,10 @@ public final class LavaRadioPlayer {
 				} catch (InterruptedException e) {
 					Thread.currentThread().interrupt();
 					break;
+				} catch (CozyRadioAudioDevice.AudioLineUnavailableException e) {
+					// The output line could not be opened at all — hand straight
+					// back to the retry loop instead of counting bad frames.
+					throw e;
 				} catch (RuntimeException e) {
 					// A transient decode/executor hiccup: skip the frame. A sustained
 					// burst means the player is dead and needs a reconnect.

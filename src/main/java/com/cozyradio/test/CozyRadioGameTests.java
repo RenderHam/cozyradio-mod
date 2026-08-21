@@ -133,7 +133,10 @@ public class CozyRadioGameTests {
 	public void personalStationStoreMigration(GameTestHelper helper) {
 		Path path = FabricLoader.getInstance().getConfigDir().resolve("cozyradio-mod/personal-stations.json");
 		try {
-			Files.createDirectories(path.getParent());
+			Path parent = path.getParent();
+			if (parent != null) {
+				Files.createDirectories(parent);
+			}
 			// Legacy file mixed two schemes: the "yours-<videoId>" id and the old
 			// label-embedding id, both of which must be rewritten to the name.
 			Files.writeString(path,
@@ -189,7 +192,10 @@ public class CozyRadioGameTests {
 	public void personalStationDuplicateNameRejected(GameTestHelper helper) {
 		Path path = FabricLoader.getInstance().getConfigDir().resolve("cozyradio-mod/personal-stations.json");
 		try {
-			Files.createDirectories(path.getParent());
+			Path parent = path.getParent();
+			if (parent != null) {
+				Files.createDirectories(parent);
+			}
 			Files.deleteIfExists(path);
 			PersonalStationStore store = new PersonalStationStore();
 			store.load();

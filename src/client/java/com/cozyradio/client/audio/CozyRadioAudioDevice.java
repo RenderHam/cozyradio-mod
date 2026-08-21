@@ -6,6 +6,8 @@ import javax.sound.sampled.FloatControl;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 
+import com.cozyradio.CozyRadioMod;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.sounds.SoundSource;
 
@@ -29,9 +31,17 @@ public final class CozyRadioAudioDevice {
 	private float appliedGainDb = Float.NaN;
 	private long lastGainUpdate;
 	private SourceDataLine source;
+	private volatile boolean lineBroken;
 	private byte[] byteBuf = new byte[4096];
 	private volatile boolean stopped;
 	private AudioFormat outputOverride;
+
+	/** Thrown by {@link #writePcm} when no audio output line could be opened; callers retry with backoff. */
+	public static final class AudioLineUnavailableException extends IllegalStateException {
+		public AudioLineUnavailableException(String message) {
+			super(message);
+		}
+	}
 
 	public CozyRadioAudioDevice() {
 		this.gainDb = volumeToDb(currentVolume());
@@ -73,6 +83,12 @@ public final class CozyRadioAudioDevice {
 		}
 		if (source == null) {
 			createSource(format);
+		}
+		if (source == null) {
+			if (lineBroken) {
+				throw new AudioLineUnavailableException("audio output line unavailable");
+			}
+			return;
 		} else if (!source.getFormat().equals(format)) {
 			reopenSource(format);
 		}
@@ -101,6 +117,9 @@ public final class CozyRadioAudioDevice {
 			line = AudioSystem.getSourceDataLine(format);
 			line.open(format, Math.max(4096, bufferBytes));
 		} catch (LineUnavailableException | RuntimeException e) {
+			lineBroken = true;
+			CozyRadioMod.LOGGER.warn("Could not open an audio output line ({}); will retry via the stream loop",
+					e.toString());
 			return;
 		}
 		appliedGainDb = Float.NaN;

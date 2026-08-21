@@ -1,6 +1,7 @@
 plugins {
 	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
 	id 'maven-publish'
+	id 'com.github.spotbugs' version '6.4.6'
 }
 
 version = project.mod_version
@@ -85,6 +86,22 @@ dependencies {
 	include "com.grack:nanojson:1.7"
 	clientImplementation "org.slf4j:slf4j-api:2.0.7"
 	include "org.slf4j:slf4j-api:2.0.7"
+
+	// Unit tests for pure logic (URL parsing, rotation math).
+	testImplementation platform('org.junit:junit-bom:5.11.4')
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(com.github.spotbugs.snom.SpotBugsTask).configureEach {
+	excludeFilter = file('spotbugs-exclude.xml')
+	reports {
+		html.required = true
+	}
+}
+
+tasks.named('test', Test) {
+	useJUnitPlatform()
 }
 
 processResources {

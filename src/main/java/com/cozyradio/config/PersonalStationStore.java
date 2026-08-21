@@ -2,8 +2,10 @@ package com.cozyradio.config;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,6 +37,9 @@ public final class PersonalStationStore {
 	/** Per-player state; lists are already immutable, so accessors never copy. */
 	private final Map<UUID, PlayerData> players = new HashMap<>();
 
+	/** Set when {@link #load()} rewrote a legacy entry, so the file is re-saved once. */
+	private boolean migratedDuringLoad;
+
 	/** Per-player state: their stations and whether the shared rotation is replaced by them. */
 	private record PlayerData(boolean rotate, List<PlaylistConfig.Station> stations) {
 	}
@@ -42,45 +47,28 @@ public final class PersonalStationStore {
 	/** Loads the store from disk, replacing any existing in-memory state. */
 	public void load() {
 		players.clear();
+		migratedDuringLoad = false;
 		Path path = filePath();
-		boolean migrated = false;
 		try {
 			if (!Files.exists(path)) {
 				return;
 			}
 			JsonObject root = JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8)).getAsJsonObject();
+			int skipped = 0;
 			for (Map.Entry<String, JsonElement> entry : root.entrySet()) {
-				UUID uuid = UUID.fromString(entry.getKey());
-				JsonElement value = entry.getValue();
-				List<PlaylistConfig.Station> list = new ArrayList<>();
-				Set<String> ids = new HashSet<>();
-				boolean rotate = false;
-				if (value.isJsonObject()) {
-					JsonObject object = value.getAsJsonObject();
-					rotate = object.has("rotate") && object.get("rotate").getAsBoolean();
-					value = object.has("stations") ? object.get("stations") : new JsonArray();
+				try {
+					players.put(UUID.fromString(entry.getKey()), parsePlayer(entry.getValue()));
+				} catch (RuntimeException e) {
+					skipped++;
+					CozyRadioMod.LOGGER.warn("Skipping unreadable personal-station entry '{}': {}",
+							entry.getKey(), e.toString());
 				}
-				for (JsonElement element : value.getAsJsonArray()) {
-					PlaylistConfig.Station station = GSON.fromJson(element, PlaylistConfig.Station.class);
-					if (station == null || station.id() == null || station.url() == null) {
-						continue;
-					}
-					// The id is the player-chosen name. Rewrite any other form
-					// (e.g. "yours-<videoId>" or label-embedding ids from earlier
-					// versions) so stations are keyed by their name.
-					if (station.name() != null && !station.name().isBlank()
-							&& !station.id().equals(station.name())) {
-						station = new PlaylistConfig.Station(station.name(), station.name(), station.url(),
-								station.type());
-						migrated = true;
-					}
-					if (ids.add(station.id())) {
-						list.add(station);
-					}
-				}
-				players.put(uuid, new PlayerData(rotate, List.copyOf(list)));
 			}
-			if (migrated) {
+			if (skipped > 0) {
+				CozyRadioMod.LOGGER.warn("Personal stations: skipped {} corrupt entry(s), kept {}", skipped,
+						players.size());
+			}
+			if (migratedDuringLoad) {
 				save();
 			}
 			CozyRadioMod.LOGGER.info("Loaded personal stations for {} player(s)", players.size());
@@ -88,6 +76,37 @@ public final class PersonalStationStore {
 			players.clear();
 			CozyRadioMod.LOGGER.warn("Could not read personal stations at {}, starting empty: {}", path, e.toString());
 		}
+	}
+
+	/** Parses one player's store entry; throws on invalid input so only that entry is skipped. */
+	private PlayerData parsePlayer(JsonElement value) {
+		List<PlaylistConfig.Station> list = new ArrayList<>();
+		Set<String> ids = new HashSet<>();
+		boolean rotate = false;
+		if (value.isJsonObject()) {
+			JsonObject object = value.getAsJsonObject();
+			rotate = object.has("rotate") && object.get("rotate").getAsBoolean();
+			value = object.has("stations") ? object.get("stations") : new JsonArray();
+		}
+		for (JsonElement element : value.getAsJsonArray()) {
+			PlaylistConfig.Station station = GSON.fromJson(element, PlaylistConfig.Station.class);
+			if (station == null || station.id() == null || station.url() == null) {
+				continue;
+			}
+			// The id is the player-chosen name. Rewrite any other form
+			// (e.g. "yours-<videoId>" or label-embedding ids from earlier
+			// versions) so stations are keyed by their name.
+			if (station.name() != null && !station.name().isBlank()
+					&& !station.id().equals(station.name())) {
+				station = new PlaylistConfig.Station(station.name(), station.name(), station.url(),
+						station.type());
+				migratedDuringLoad = true;
+			}
+			if (ids.add(station.id())) {
+				list.add(station);
+			}
+		}
+		return new PlayerData(rotate, List.copyOf(list));
 	}
 
 	public List<PlaylistConfig.Station> get(UUID playerUuid) {
@@ -149,6 +168,8 @@ public final class PersonalStationStore {
 	}
 
 	private void save() {
+		Path path = filePath();
+		Path tmp = path.resolveSibling(path.getFileName() + ".tmp");
 		try {
 			JsonObject root = new JsonObject();
 			for (Map.Entry<UUID, PlayerData> entry : players.entrySet()) {
@@ -161,11 +182,23 @@ public final class PersonalStationStore {
 				data.add("stations", array);
 				root.add(entry.getKey().toString(), data);
 			}
-			Path path = filePath();
-			Files.createDirectories(path.getParent());
-			Files.writeString(path, PRETTY_GSON.toJson(root) + System.lineSeparator(), StandardCharsets.UTF_8);
+			Path parent = path.getParent();
+			if (parent != null) {
+				Files.createDirectories(parent);
+			}
+			Files.writeString(tmp, PRETTY_GSON.toJson(root) + System.lineSeparator(), StandardCharsets.UTF_8);
+			try {
+				Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+			} catch (AtomicMoveNotSupportedException e) {
+				Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING);
+			}
 		} catch (IOException e) {
 			CozyRadioMod.LOGGER.warn("Could not save personal stations: {}", e.toString());
+			try {
+				Files.deleteIfExists(tmp);
+			} catch (IOException cleanup) {
+				CozyRadioMod.LOGGER.warn("Could not remove stale temp file {}: {}", tmp, cleanup.toString());
+			}
 		}
 	}
 

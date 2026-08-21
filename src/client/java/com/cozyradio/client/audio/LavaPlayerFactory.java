@@ -2,8 +2,10 @@ package com.cozyradio.client.audio;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.concurrent.TimeUnit;
 
 import com.cozyradio.CozyRadioMod;
@@ -167,10 +169,10 @@ public final class LavaPlayerFactory {
 	private static void showChatHint(String url, String code) {
 		Minecraft.getInstance().execute(() -> Minecraft.getInstance().gui.getChat().addMessage(
 				Component.literal("Cozy Radio: YouTube authorization required — open ")
-.append(Component.literal(url)
-							.withStyle(style -> style
-									.withClickEvent(new ClickEvent.OpenUrl(java.net.URI.create(url)))
-									.withColor(ChatFormatting.AQUA).withUnderlined(true)))
+						.append(Component.literal(url)
+								.withStyle(style -> style
+										.withClickEvent(new ClickEvent.OpenUrl(java.net.URI.create(url)))
+										.withColor(ChatFormatting.AQUA).withUnderlined(true)))
 						.append(Component.literal(" and enter code " + code + " (one-time)"))));
 	}
 
@@ -181,14 +183,28 @@ public final class LavaPlayerFactory {
 	}
 
 	private static void saveRefreshToken(String token) {
+		Path path = CozyRadioMod.configPath("youtube-oauth.json");
+		Path tmp = path.resolveSibling(path.getFileName() + ".tmp");
 		try {
 			JsonObject root = new JsonObject();
 			root.addProperty("refreshToken", token);
-			Path path = CozyRadioMod.configPath("youtube-oauth.json");
-			Files.createDirectories(path.getParent());
-			Files.writeString(path, root.toString() + System.lineSeparator(), StandardCharsets.UTF_8);
+			Path parent = path.getParent();
+			if (parent != null) {
+				Files.createDirectories(parent);
+			}
+			Files.writeString(tmp, root.toString() + System.lineSeparator(), StandardCharsets.UTF_8);
+			try {
+				Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+			} catch (AtomicMoveNotSupportedException e) {
+				Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING);
+			}
 		} catch (IOException e) {
 			CozyRadioMod.LOGGER.warn("Could not save YouTube refresh token: {}", e.toString());
+			try {
+				Files.deleteIfExists(tmp);
+			} catch (IOException cleanup) {
+				CozyRadioMod.LOGGER.warn("Could not remove stale temp file {}: {}", tmp, cleanup.toString());
+			}
 		}
 	}
 
